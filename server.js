@@ -5,10 +5,12 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 // import route handlers
-const getAllMakeup = require('./handlers/makeup');
+const { getAllMakeup, getOrganicMakeup } = require('./handlers/makeup');
 
 const app = express();
 app.use(cors());
+// fetch post req.body fields as JSON
+app.use(express.json());
 
 const PORT = process.env.PORT || 3010;
 app.listen(PORT, () => {
@@ -38,7 +40,9 @@ const productSchema = new mongoose.Schema({
 
 const productModel = mongoose.model('products', productSchema);
 
-function seedDatabase() {
+const naturalMakeup = getOrganicMakeup();
+
+function seedDatabase(naturalMakeup) {
   const makeup1 = new productModel({
     name: 'Lippie Pencil',
     brand: 'colourpop',
@@ -88,6 +92,7 @@ function seedDatabase() {
 
 // run the seeder
 //seedDatabase();
+//console.dir(naturalMakeup);
 
 const getMakeupsFromDB = (req, res) => {
   productModel.find({}, function (error, makeupArray) {
@@ -99,5 +104,68 @@ const getMakeupsFromDB = (req, res) => {
   });
 };
 
+const addMakeupProduct = async (req, res) => {
+  // empty values
+  let cleanName = '';
+  let cleanBrand = '';
+  let cleanPrice = 0.0;
+  let cleanImageUrl = '';
+  let cleanDescr = '';
+  // check req values
+  if (
+    !req.body.name ||
+    !req.body.brand ||
+    !req.body.price ||
+    !req.body.imageUrl ||
+    !req.body.description
+  ) {
+    return res
+      .status(501)
+      .send('One of name, brand, price, imageUrl or description is empty.');
+  }
+  // check name - spaces hypens a-z one or more
+  const azString = new RegExp("[a-zA-Z\' -_]+");
+  if (azString.test(req.body.name.toString())) {
+    cleanName = req.body.name.toString().trim();
+  }
+  // check brand
+  if (azString.test(req.body.brand)) {
+    cleanBrand = req.body.brand.toString().trim();
+  }
+  // check price
+  if (typeof req.body.price === 'number') {
+    cleanPrice = parseFloat(req.body.price);
+  }
+  // would check the url if it wasn't such an unusual url
+  cleanImageUrl = req.body.imageUrl.toString();
+
+  // replace some characters in description
+  // take out special chars like ;$£ etc.
+  cleanDescr = req.body.description.replace(azString, ' ');
+  // create the model
+  let newMakeup = await productModel.create({
+    name: cleanName,
+    brand: cleanBrand,
+    price: cleanPrice,
+    imageUrl: cleanImageUrl,
+    description: cleanDescr
+  });
+  // send all new makeup products to client
+  // including one just added.
+  productModel.find({}, function (error, makeupArray) {
+    if (error) {
+      console.error('DB error: ' + error);
+    } else {
+      res.status(200).send(makeupArray);
+    }
+  });
+};
+
+
+
+
 // get all makeup products from mongodb
 app.get('/product', getMakeupsFromDB);
+
+// create a makeup product
+app.post('/product', addMakeupProduct);
