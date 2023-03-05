@@ -25,4 +25,5 @@ const getSomeMakeup = async () => {
     .catch((err) => console.error(err));
 };
 
+
 module.exports = { getAllMakeup, getSomeMakeup };

@@ -5,7 +5,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 // import route handlers
-const { getAllMakeup, getOrganicMakeup } = require('./handlers/makeup');
+const { updateMakeupProduct, getSomeMakeup } = require('./handlers/makeup');
 
 const app = express();
 app.use(cors());
@@ -17,15 +17,12 @@ app.listen(PORT, () => {
   console.log('Express, Mongoose API listening port: ', PORT);
 });
 
-// localhost:3000/productsapi endpoint -
-app.get('/productsapi', getAllMakeup);
-
 /***
  * Database stuff
  * collection products is in test
  */
 
-mongoose.connect('mongodb://localhost:27017', {
+mongoose.connect('mongodb://localhost:27017/makeup', {
   //useNewUrlParser: true,
   //strictQuery: false
 });
@@ -40,7 +37,7 @@ const productSchema = new mongoose.Schema({
 
 const productModel = mongoose.model('products', productSchema);
 
-const naturalMakeup = getOrganicMakeup();
+const naturalMakeup = getSomeMakeup();
 
 function seedDatabase(naturalMakeup) {
   const makeup1 = new productModel({
@@ -124,7 +121,7 @@ const addMakeupProduct = async (req, res) => {
       .send('One of name, brand, price, imageUrl or description is empty.');
   }
   // check name - spaces hypens a-z one or more
-  const azString = new RegExp("[a-zA-Z\' -_]+");
+  const azString = new RegExp("[a-zA-Z' -_]+");
   if (azString.test(req.body.name.toString())) {
     cleanName = req.body.name.toString().trim();
   }
@@ -148,7 +145,7 @@ const addMakeupProduct = async (req, res) => {
     brand: cleanBrand,
     price: cleanPrice,
     imageUrl: cleanImageUrl,
-    description: cleanDescr
+    description: cleanDescr,
   });
   // send all new makeup products to client
   // including one just added.
@@ -161,11 +158,62 @@ const addMakeupProduct = async (req, res) => {
   });
 };
 
+const updateMakeupProduct = async () => {
+  const { name, brand, price, imageUrl, description } = req.body;
+  const newMakeup = {
+    name,
+    brand,
+    price,
+    imageUrl,
+    description,
+  };
+  // id of makeup to update
+  const id = req.params.id;
+  try {
+    const updatedProduct = await productModel.findByIdAndUpdate(id, newMakeup, {
+      new: true,
+      overwrite: true,
+    });
+    // send all products back
+    let makeupArray = await productModel.find({});
+    res.status(200).json({
+      message: 'Successfully updated makeup',
+      makeupArray,
+    });
+  } catch (err) {
+    res.json({
+      message: `${err} - MongoDB update problem`,
+    });
+  }
+};
 
+const deleteMakeupProduct = async () => {
+  const id = req.params.id;
+  try {
+    await productModel.findByIdAndDelete(id);
+    // send all products back
+    let makeupArray = await productModel.find({});
+    res.status(200).json({
+      message: 'Successfully deleted.',
+      makeupArray,
+    });
+  } catch (err) {
+    res.json({
+      message: `${err} - MongoDB delete issue`,
+    });
+  }
+};
 
+// localhost:3000/productsapi endpoint -
+app.get('/productsapi', getSomeMakeup);
 
 // get all makeup products from mongodb
 app.get('/product', getMakeupsFromDB);
 
 // create a makeup product
 app.post('/product', addMakeupProduct);
+
+// update a makeup product
+app.put('/product/:id', updateMakeupProduct());
+// delete a makeup product
+app.delete('/product/:id', deleteMakeupProduct());
