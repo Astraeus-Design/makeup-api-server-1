@@ -10,19 +10,19 @@ const getAllMakeup = async (req, res) => {
     .catch((err) => res.status(501).send('Network makup error (axios)' + err));
 };
 
-const getOrganicMakeup = async () => {
+const getSomeMakeup = async () => {
   await axios
     .get(
-      'https://makeup-api.herokuapp.com/api/v1/products.json?product_tags=Natural'
+      'https://makeup-api.herokuapp.com/api/v1/products.json?product_type=eyeshadow'
     )
     .then((jsonData) => {
       //console.dir(jsonData.data);
       const organicData = jsonData.data.filter(
-        (item) => parseFloat(item.price) > 12.0
+        (item) => parseFloat(item.price) > 8.0
       );
       return organicData;
     })
     .catch((err) => console.error(err));
 };
 
-module.exports = { getAllMakeup, getOrganicMakeup };
+module.exports = { getAllMakeup, getSomeMakeup };
