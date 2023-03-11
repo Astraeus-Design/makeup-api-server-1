@@ -5,7 +5,6 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 // import route handlers
-const { updateMakeupProduct, getSomeMakeup } = require('./handlers/makeup');
 
 const app = express();
 app.use(cors());
@@ -22,23 +21,29 @@ app.listen(PORT, () => {
  * collection products is in test
  */
 
-mongoose.connect('mongodb://localhost:27017/makeup', {
+mongoose.connect('mongodb://127.0.0.1:27017/Task_Manager', {
   //useNewUrlParser: true,
   //strictQuery: false
 });
+
 // create a schema
-const productSchema = new mongoose.Schema({
-  name: String,
-  brand: String,
-  price: Number,
-  imageUrl: String,
-  description: String,
+const userSchema = new mongoose.Schema({
+  userName: String,
 });
 
-const productModel = mongoose.model('products', productSchema);
+const taskSchema = new mongoose.Schema({
+  taskName: String,
+  dueDate: Date,
+  status: String,
+  description: String,
+  priorityLevel: Number,
+  assignedUser: String,
+});
 
-const naturalMakeup = getSomeMakeup();
+const userModel = mongoose.model('users', userSchema);
+const taskModel = mongoose.model('tasks', taskSchema);
 
+/*
 function seedDatabase(naturalMakeup) {
   const makeup1 = new productModel({
     name: 'Lippie Pencil',
@@ -86,99 +91,112 @@ function seedDatabase(naturalMakeup) {
   makeup3.save();
   makeup4.save();
 }
-
+*/
 // run the seeder
 //seedDatabase();
 //console.dir(naturalMakeup);
 
-const getMakeupsFromDB = (req, res) => {
-  productModel.find({}, function (error, makeupArray) {
+const getUsersFromDB = (req, res) => {
+  userModel.find({}, function (error, usersArray) {
     if (error) {
       console.error('DB error: ' + error);
     } else {
-      res.status(200).send(makeupArray);
+      res.status(200).send(usersArray);
     }
   });
 };
 
-const addMakeupProduct = async (req, res) => {
-  // empty values
-  let cleanName = '';
-  let cleanBrand = '';
-  let cleanPrice = 0.0;
-  let cleanImageUrl = '';
-  let cleanDescr = '';
-  // check req values
-  if (
-    !req.body.name ||
-    !req.body.brand ||
-    !req.body.price ||
-    !req.body.imageUrl ||
-    !req.body.description
-  ) {
-    return res
-      .status(501)
-      .send('One of name, brand, price, imageUrl or description is empty.');
-  }
-  // check name - spaces hypens a-z one or more
-  const azString = new RegExp("[a-zA-Z' -_]+");
-  if (azString.test(req.body.name.toString())) {
-    cleanName = req.body.name.toString().trim();
-  }
-  // check brand
-  if (azString.test(req.body.brand)) {
-    cleanBrand = req.body.brand.toString().trim();
-  }
-  // check price
-  if (typeof req.body.price === 'number') {
-    cleanPrice = parseFloat(req.body.price);
-  }
-  // would check the url if it wasn't such an unusual url
-  cleanImageUrl = req.body.imageUrl.toString();
+const getTasksFromDB = (req, res) => {
+  productModel.find({}, function (error, tasksArray) {
+    if (error) {
+      console.error('DB error: ' + error);
+    } else {
+      res.status(200).send(tasksArray);
+    }
+  });
+};
 
-  // replace some characters in description
-  // take out special chars like ;$£ etc.
-  cleanDescr = req.body.description.replace(azString, ' ');
-  // create the model
-  let newMakeup = await productModel.create({
-    name: cleanName,
-    brand: cleanBrand,
-    price: cleanPrice,
-    imageUrl: cleanImageUrl,
-    description: cleanDescr,
+const addNewUser = async (req, res) => {
+  const { userName } = req.body;
+
+  let newUser = await userModel.create({
+    userName,
   });
   // send all new makeup products to client
   // including one just added.
-  productModel.find({}, function (error, makeupArray) {
+  userModel.find({}, function (error, usersArray) {
     if (error) {
       console.error('DB error: ' + error);
     } else {
-      res.status(200).send(makeupArray);
+      res.status(200).send(usersArray);
     }
   });
 };
 
-const updateMakeupProduct = async () => {
-  const { name, brand, price, imageUrl, description } = req.body;
-  const newMakeup = {
-    name,
-    brand,
-    price,
-    imageUrl,
+const addNewTask = async (req, res) => {
+  const {
+    taskName,
+    dueDate,
+    status,
     description,
+    priorityLevel,
+    assignedUser,
+  } = req.body;
+
+  let newTask = await taskModel.create({
+    taskName,
+    dueDate,
+    status,
+    description,
+    priorityLevel,
+    assignedUser,
+  });
+
+  // send all new makeup products to client
+  // including one just added.
+  taskModel.find({}, function (error, tasksArray) {
+    if (error) {
+      console.error('DB error: ' + error);
+    } else {
+      res.status(200).send(tasksArray);
+    }
+  });
+};
+
+const updateTask = async () => {
+  const {
+    taskName,
+    dueDate,
+    status,
+    description,
+    priorityLevel,
+    assignedUser,
+  } = req.body;
+
+  const newTask = {
+    taskName,
+    dueDate,
+    status,
+    description,
+    priorityLevel,
+    assignedUser,
   };
+
   // id of makeup to update
   const id = req.params.id;
+
   try {
-    const updatedProduct = await productModel.findByIdAndUpdate(id, newMakeup, {
+    const updatedTask = await taskModel.findByIdAndUpdate(id, newTask, {
       new: true,
       overwrite: true,
     });
-    // send all products back
-    let makeupArray = await productModel.find({});
+
+    // send all tasks back
+
+    let taskArray = await taskModel.find({});
     res.status(200).json({
-      message: 'Successfully updated makeup',
-      makeupArray,
+      message: 'Successfully updated task',
+      taskArray,
     });
   } catch (err) {
     res.json({
@@ -187,15 +205,16 @@ const updateMakeupProduct = async () => {
   }
 };
 
-const deleteMakeupProduct = async () => {
+const deleteTask = async () => {
   const id = req.params.id;
+
   try {
-    await productModel.findByIdAndDelete(id);
-    // send all products back
-    let makeupArray = await productModel.find({});
+    await taskModel.findByIdAndDelete(id);
+    // send all tasks back
+    let taskArray = await taskModel.find({});
     res.status(200).json({
       message: 'Successfully deleted.',
-      makeupArray,
+      taskArray,
     });
   } catch (err) {
     res.json({
@@ -204,16 +223,20 @@ const deleteMakeupProduct = async () => {
   }
 };
 
-// localhost:3000/productsapi endpoint -
-app.get('/productsapi', getSomeMakeup);
+// localhost:3000/tasks endpoint -
+app.get('/users', getUsersFromDB);
 
-// get all makeup products from mongodb
-app.get('/product', getMakeupsFromDB);
+// create a user
+app.post('/users', addNewUser);
 
-// create a makeup product
-app.post('/product', addMakeupProduct);
+// get all tasks from mongodb
+app.get('/task', getTasksFromDB);
+
+// create a task
+app.post('/task', addNewTask);
 
 // update a makeup product
-app.put('/product/:id', updateMakeupProduct());
+app.put('/task/:id', updateTask);
+
 // delete a makeup product
-app.delete('/product/:id', deleteMakeupProduct());
+app.delete('/task/:id', deleteTask);
